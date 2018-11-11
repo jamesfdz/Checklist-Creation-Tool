@@ -1,6 +1,5 @@
 package iPadDpChecklist;
 
-import static java.awt.SystemColor.window;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -15,31 +14,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import javax.swing.JOptionPane;
-import static jdk.nashorn.internal.objects.NativeMath.round;
 import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Hyperlink;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFHyperlink;
-import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.remote.DesiredCapabilities;
-import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.apache.poi.ss.usermodel.CreationHelper;
@@ -51,12 +39,16 @@ public class MainActivity {
 	 public static final String URL = "https://login.veevavault.com/";
 	 public static Logger logger = Logger.getLogger("MyLog");   
 	 public static FileHandler fh;
+	 public static final List<String> slideNames = new ArrayList<String>();
+	 public static final List<String> slideLinks = new ArrayList<String>();
+	 public static final List<String> slideBinderId = new ArrayList<String>();
 
 	public static void main(String[] args) throws MalformedURLException, FileNotFoundException, IOException {
-		// TODO Auto-generated method stub
+		
 		List<String> allfileSizes = new ArrayList<String>();
+		
         try{
-            //open browser
+        //open browser
         System.setProperty("webdriver.chrome.driver","chromedriver.exe");
         WebDriver driver = new ChromeDriver();
         driver.manage().window().maximize();
@@ -205,76 +197,66 @@ public class MainActivity {
         System.out.println("Going up to get page number");
         ((JavascriptExecutor)driver).executeScript("arguments[0].scrollIntoView();", firstScrolling);
         
-//        List<WebElement> slideNames = driver.findElements(By.xpath("//*[@class='docNameLink vv_doc_title_link veevaTooltipBound']"));
-        
-        List<WebElement> slideNames = new ArrayList<WebElement>();
-        
-        slideNames.addAll(driver.findElements(By.xpath("//*[@class='docNameLink vv_doc_title_link veevaTooltipBound']")));
-        
-        System.out.println("First Page Slide Name: "+ slideNames);
-        
-        new WebDriverWait(driver, 3000).until(ExpectedConditions.visibilityOfElementLocated(By.xpath("(//span[@class='vv_float_left'])[1]")));
+        getPageData(driver);
         
         WebElement pages = driver.findElement(By.xpath("(//span[@class='vv_float_left'])[1]"));
-        String pagesText = pages.getText();
-        System.out.println(pagesText);
-        
-        if(pagesText != "of 1") {
-        	System.out.println("More than one pages");
-        	String[] pageNumberPart = pagesText.split(" ");
-        	System.out.println(pageNumberPart[2]);
-        	int pageNum = parseInt(pageNumberPart[2]);
-        	
-        	for(int i = 1; i < pageNum; i++) {
-        		driver.findElement(By.xpath("//*[@class='vpage_next vv_button vv_float_left']")).click();
-        		slideNames.addAll(driver.findElements(By.xpath("//*[@class='docNameLink vv_doc_title_link veevaTooltipBound']")));
-        	}
-        	
-        }
-        
-        new WebDriverWait(driver, 3000).until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@class='docNameLink vv_doc_title_link veevaTooltipBound']")));
-        
-        System.out.println(slideNames.size());
-        
-        Cell docTitle = null;
-             
-        List<String> slideLinks = new ArrayList<String>();
-        
-        int initialRowNumber = 25;
-        for(WebElement slideName : slideNames){
-            
-            docTitle = outputSheet.getRow(initialRowNumber).getCell(0);
-            String slideNameText = slideName.getText();
-            docTitle.setCellValue(slideNameText);
-            String slideNameLink = slideName.getAttribute("href");
-            slideLinks.add(slideNameLink);
-            System.out.println(slideNameLink);
-            XSSFHyperlink docTitlelink = (XSSFHyperlink)createHelper.createHyperlink(HyperlinkType.URL);
-            docTitlelink.setAddress(slideNameLink);
-            docTitle.setHyperlink((XSSFHyperlink) docTitlelink);
-            docTitle.setCellStyle(hlinkstyle);
-            
-            System.out.println(slideName.getText());
-                       
-            initialRowNumber++;
-        }
-        
-        List<WebElement> slideNums = driver.findElements(By.xpath("//*[@class='docNumber vv_doc_number']"));
-        System.out.println(slideNames.size());
-        
-        Cell docNumber = null;
-        int initialRowNumberForBinder = 25;
-        for(WebElement slideNum : slideNums){
+	    String pagesText = pages.getText();
+	    System.out.println("How many pages: "+pagesText);
+	      
+	    if(pagesText != "of 1") {
+	    	System.out.println("More than one pages");
+	     	String[] pageNumberPart = pagesText.split(" ");
+	     	System.out.println("partion two:"+pageNumberPart[1]);
+	     	int pageNum = parseInt(pageNumberPart[1]);
+	      	
+	      	for(int i = 1; i < pageNum; i++) {
+	      		driver.findElement(By.xpath("//*[@class='vpage_next vv_button vv_float_left']")).click();
+	      		driver.manage().timeouts().implicitlyWait(60, TimeUnit.SECONDS);
+	      		getPageData(driver);
+	      	}
+	    }
+	    
+	    //TODO run for each loop and add slideNames in excel sheet
+	    Cell docTitle = null;
+	    Cell docNumber = null;
+	    
+	    int initialRowNumber = 23;
+	      for(String slideName : slideNames){
+	          docTitle = outputSheet.getRow(initialRowNumber).getCell(0);
+	          docTitle.setCellValue(slideName);          
+	          initialRowNumber++;
+	      }
+	    
+	    //TODO run for each loop and add slideNums in excel sheet
+	    int initialRowNumberForBinder = 23;
+        for(String slideNum : slideBinderId){
             
             docNumber = outputSheet.getRow(initialRowNumberForBinder).getCell(1);
-            String slideNumText = slideNum.getText();
-            docNumber.setCellValue(slideNumText);
-            
-            System.out.println(slideNumText);
-            
+            docNumber.setCellValue(slideNum);
             initialRowNumberForBinder++;
             
         }
+	    
+	    //TODO run for each loop and add slideLinks to slideNames & slideNums in excel sheet
+        int initialRow = 23;
+        for(String slideLink : slideLinks){
+            System.out.println(slideLink);
+            Cell binder_cell_0 = outputSheet.getRow(initialRow).getCell(0);
+            XSSFHyperlink binder_cell_0_link = (XSSFHyperlink)createHelper.createHyperlink(HyperlinkType.URL);
+            binder_cell_0_link.setAddress(slideLink);
+            binder_cell_0.setHyperlink(binder_cell_0_link);
+            binder_cell_0.setCellStyle(hlinkstyle);
+            
+            Cell binder_cell_1 = outputSheet.getRow(initialRow).getCell(1);
+            XSSFHyperlink binder_cell_1_link = (XSSFHyperlink)createHelper.createHyperlink(HyperlinkType.URL);
+            binder_cell_1_link.setAddress(slideLink);
+            binder_cell_1.setHyperlink(binder_cell_1_link);
+            binder_cell_1.setCellStyle(hlinkstyle);
+            
+            initialRow++;
+        }
+	    
+	    //TODO continue the rest of the code from shared resources flow
         
         WebElement firstDocElementScrolling = driver.findElement(By.id("search_main_box"));
         
@@ -282,8 +264,8 @@ public class MainActivity {
         ((JavascriptExecutor)driver).executeScript("arguments[0].scrollIntoView();", firstDocElementScrolling);
         
         
-        new WebDriverWait(driver, 3000).until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@listidx='0']//div[@class='docInfo vv_doc_detail_content vv_col']//a[@class='docNameLink vv_doc_title_link veevaTooltipBound']")));
-        WebElement firstDocElement = driver.findElement(By.xpath("//*[@listidx='0']//div[@class='docInfo vv_doc_detail_content vv_col']//a[@class='docNameLink vv_doc_title_link veevaTooltipBound']"));
+        new WebDriverWait(driver, 3000).until(ExpectedConditions.visibilityOfElementLocated(By.xpath("(//*[@class='docNameLink vv_doc_title_link veevaTooltipBound'])[1]")));
+        WebElement firstDocElement = driver.findElement(By.xpath("(//*[@class='docNameLink vv_doc_title_link veevaTooltipBound'])[1]"));
         firstDocElement.click();
         
         new WebDriverWait(driver, 3000).until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@key='related_shared_resource__pm']")));
@@ -338,19 +320,6 @@ public class MainActivity {
             sharedNum.setHyperlink(sharedLinkForNum);
             
             allfileSizes.add(sharedFileSizeText);
-        }
-        
-        
-       
-        int initialRowForBinder = 25;
-        for(String slideLink : slideLinks){
-            System.out.println(slideLink);
-            Cell binder_cell = outputSheet.getRow(initialRowForBinder).getCell(1);
-            XSSFHyperlink binder_cell_link = (XSSFHyperlink)createHelper.createHyperlink(HyperlinkType.URL);
-            binder_cell_link.setAddress(slideLink);
-            binder_cell.setHyperlink(binder_cell_link);
-            binder_cell.setCellStyle(hlinkstyle);
-            initialRowForBinder++;
         }
         
         driver.close();
@@ -437,7 +406,7 @@ public class MainActivity {
         
         Cell fileSizeCell = null;
         
-        fileSizeCell = outputSheet.getRow(23).getCell(1);
+        fileSizeCell = outputSheet.getRow(21).getCell(1);
         fileSizeCell.setCellValue(SumOfAll + " MB");
         
         System.out.println("Final Answer: " + SumOfAll + " MB");
@@ -447,9 +416,9 @@ public class MainActivity {
         outputWorkbook.write(output);
         output.close();
         
+        outputWorkbook.close();
+        
         JOptionPane.showMessageDialog(null, "Completed Successfully");
-        
-        
         
         }catch(Exception e){
              fh = new FileHandler("LogFile.log");  
@@ -461,4 +430,19 @@ public class MainActivity {
             logger.info("" + e.getLocalizedMessage());
         }        
     }
+
+	private static void getPageData(WebDriver driver) {
+		List<WebElement> slideNamesElm = driver.findElements(By.xpath("//*[@class='docNameLink vv_doc_title_link veevaTooltipBound']"));
+		int slideElmCount = slideNamesElm.size();
+		for(int i = 1; i <= slideElmCount; i++) {
+			WebElement slideNameElm = driver.findElement(By.xpath("(//*[@class='docNameLink vv_doc_title_link veevaTooltipBound'])["+i+"]"));
+			String slideName = slideNameElm.getText();
+			slideNames.add(slideName);
+			String slideLink = slideNameElm.getAttribute("href");
+			slideLinks.add(slideLink);
+			WebElement slideBinderIdElm = driver.findElement(By.xpath("(//*[@class='docNumber vv_doc_number'])["+i+"]"));
+			String slideBinderIdText = slideBinderIdElm.getText();
+			slideBinderId.add(slideBinderIdText);
+		}
 	}
+}
